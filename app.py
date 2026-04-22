@@ -60,6 +60,70 @@ def get_embedding(text):
     )
     return result['embedding']
 
+def resize_image(image, max_size=1024):
+    """AI 분석을 위해 이미지 크기를 최적화합니다."""
+    width, height = image.size
+    if max(width, height) > max_size:
+        if width > height:
+            new_width = max_size
+            new_height = int(height * (max_size / width))
+        else:
+            new_height = max_size
+            new_width = int(width * (max_size / height))
+        return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    return image
+
+def perform_search(query_text):
+    """공통 검색 및 결과 출력 로직"""
+    if not query_text:
+        st.warning("검색 내용이 없습니다.")
+        return
+
+    with st.spinner("클라우드 벡터 공간 검색 중..."):
+        try:
+            # 1. Get query embedding
+            query_emb = get_embedding(query_text)
+            
+            # 2. Call Supabase RPC function
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "query_embedding": query_emb,
+                "match_threshold": 0.1,
+                "match_count": num_results
+            }
+            
+            rpc_url = f"{SUPABASE_URL}/rest/v1/rpc/match_images"
+            response = requests.post(rpc_url, headers=headers, json=payload, timeout=25)
+            
+            if response.status_code == 200:
+                results = response.json()
+                if results:
+                    st.markdown(f"### 🔍 검색 결과 (총 {len(results)}건)")
+                    st.markdown("---")
+                    
+                    images_b64 = [r.get("thumbnail_b64", "") for r in results]
+                    titles = [r.get("project_name", "Unknown") for r in results]
+                    
+                    clicked_idx = clickable_images(
+                        images_b64,
+                        titles=titles,
+                        div_style={"display": "grid", "grid-template-columns": f"repeat({grid_columns}, 1fr)", "gap": "15px"},
+                        img_style={"width": "100%", "border-radius": "10px", "cursor": "zoom-in"},
+                    )
+                    
+                    if clicked_idx > -1:
+                        show_detail_popup(results[clicked_idx])
+                else:
+                    st.info("검색 결과가 없습니다.")
+            else:
+                st.error(f"서버 에러: {response.status_code}")
+        except Exception as e:
+            st.error(f"검색 중 오류 발생: {e}")
+
 @st.dialog("📋 프로젝트 상세 정보", width="large")
 def show_detail_popup(row):
     similarity = row.get('similarity', 0) * 100
@@ -97,75 +161,31 @@ grid_columns = st.sidebar.select_slider("그리드 단수 (Columns)", options=[2
 st.title("SEOP ARCHIVE : Semantic Search 🏛️")
 st.caption("AI 기반 클라우드 건축 이미지 아카이브 : 사진 한 장으로 유사한 디자인을 찾아보세요")
 
-query_text = ""
 if search_mode == "📝 텍스트로 검색":
     query = st.text_input("검색어를 입력하세요:", placeholder="예: 주변에 숲이 있고 따뜻한 무드의 주택 조감도")
-    if query:
-        query_text = query
+    if st.button("검색 시작") or (query and len(query) > 1):
+        perform_search(query)
+
 else:
     uploaded_file = st.file_uploader("참고할 이미지를 업로드하세요", type=["jpg", "jpeg", "png"])
     if uploaded_file:
         st.image(uploaded_file, caption="업로드된 기준 이미지", width=300)
         if st.button("유사 이미지 검색"):
-            with st.spinner("이미지 분석 중..."):
+            with st.spinner("이미지 분석 중... (약 5~10초 소요)"):
                 try:
-                    img = Image.open(uploaded_file)
-                    # 2.5 Flash 모델 사용 (2.0이 이미 구형이라고 함)
+                    raw_img = Image.open(uploaded_file)
+                    # 리사이징하여 속도 향상 (9.9MB -> 최적화)
+                    optimized_img = resize_image(raw_img)
+                    
                     vision_model = genai.GenerativeModel('gemini-2.5-flash')
                     response = vision_model.generate_content([
                         "Describe this architecture image in detail, focusing on materials, lighting, style, and atmosphere for semantic search.",
-                        img
+                        optimized_img
                     ])
                     query_text = response.text
-                    st.info(f"🔍 **이미지 분석:** {query_text[:100]}...")
+                    st.info(f"🔍 **분석 완료:** {query_text[:150]}...")
+                    
+                    # 분석 완료 후 바로 검색 실행
+                    perform_search(query_text)
                 except Exception as e:
                     st.error(f"이미지 분석 실패: {e}")
-
-if query_text:
-    with st.spinner("클라우드 벡터 공간 검색 중..."):
-        try:
-            # 1. Get query embedding
-            query_emb = get_embedding(query_text)
-            
-            # 2. Call Supabase RPC function
-            headers = {
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "query_embedding": query_emb,
-                "match_threshold": 0.1,  # 최소 유사도
-                "match_count": num_results
-            }
-            
-            rpc_url = f"{SUPABASE_URL}/rest/v1/rpc/match_images"
-            response = requests.post(rpc_url, headers=headers, json=payload, timeout=20)
-            
-            if response.status_code == 200:
-                results = response.json()
-                
-                if results:
-                    st.markdown(f"### 🔍 검색 결과 (총 {len(results)}건)")
-                    st.markdown("---")
-                    
-                    # Display Grid
-                    images_b64 = [r.get("thumbnail_b64", "") for r in results]
-                    titles = [r.get("project_name", "Unknown") for r in results]
-                    
-                    clicked_idx = clickable_images(
-                        images_b64,
-                        titles=titles,
-                        div_style={"display": "grid", "grid-template-columns": f"repeat({grid_columns}, 1fr)", "gap": "15px"},
-                        img_style={"width": "100%", "border-radius": "10px", "cursor": "zoom-in", "transition": "transform 0.2s"},
-                    )
-                    
-                    if clicked_idx > -1:
-                        show_detail_popup(results[clicked_idx])
-                else:
-                    st.warning("일치하는 결과가 없습니다.")
-            else:
-                st.error(f"Supabase Error ({response.status_code}): {response.text}")
-                
-        except Exception as e:
-            st.error(f"Error: {e}")
