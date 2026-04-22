@@ -110,21 +110,13 @@ else:
             with st.spinner("이미지 분석 중..."):
                 try:
                     img = Image.open(uploaded_file)
-                    try:
-                        # 1순위: 1.5 flash
-                        vision_model = genai.GenerativeModel('gemini-1.5-flash')
-                        response = vision_model.generate_content([
-                            "Describe this architecture image in detail for semantic search.",
-                            img
-                        ])
-                        query_text = response.text
-                    except Exception as model_err:
-                        # 심플하게 모델 이름만 나열
-                        try:
-                            available_models = [m.name for m in genai.list_models()]
-                        except:
-                            available_models = "목록 추출 실패"
-                        raise Exception(f"모델 로드 실패. 사용 가능 모델: {available_models}. 원본 에러: {model_err}")
+                    # 2.0 Flash 모델 사용 (사용자 계정에서 확인된 최신 모델)
+                    vision_model = genai.GenerativeModel('gemini-2.0-flash')
+                    response = vision_model.generate_content([
+                        "Describe this architecture image in detail, focusing on materials, lighting, style, and atmosphere for semantic search.",
+                        img
+                    ])
+                    query_text = response.text
                     st.info(f"🔍 **이미지 분석:** {query_text[:100]}...")
                 except Exception as e:
                     st.error(f"이미지 분석 실패: {e}")
