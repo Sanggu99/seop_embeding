@@ -110,8 +110,8 @@ else:
             with st.spinner("이미지 분석 중..."):
                 try:
                     img = Image.open(uploaded_file)
-                    # 2.0 Flash 모델 사용 (사용자 계정에서 확인된 최신 모델)
-                    vision_model = genai.GenerativeModel('gemini-2.0-flash')
+                    # 2.5 Flash 모델 사용 (2.0이 이미 구형이라고 함)
+                    vision_model = genai.GenerativeModel('gemini-2.5-flash')
                     response = vision_model.generate_content([
                         "Describe this architecture image in detail, focusing on materials, lighting, style, and atmosphere for semantic search.",
                         img
