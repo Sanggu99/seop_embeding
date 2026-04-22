@@ -178,12 +178,19 @@ else:
                     optimized_img = resize_image(raw_img)
                     
                     vision_model = genai.GenerativeModel('gemini-2.5-flash')
-                    response = vision_model.generate_content([
-                        "Describe this architecture image in detail, focusing on materials, lighting, style, and atmosphere for semantic search.",
-                        optimized_img
-                    ])
+                    # 노을, 조명 등 분위기 중심의 한국어 분석 요청
+                    prompt = """
+                    이 건축 이미지를 상세히 분석하여 한국어로 설명해줘.
+                    특히 다음 요소들에 집중해서 설명해줘:
+                    1. 시간대와 조명: (예: 노을이 지는 골든아워, 밤, 밝은 낮)
+                    2. 전체적인 분위기와 색감: (예: 따뜻하고 오렌지빛 도는 분위기, 차갑고 도시적인 느낌)
+                    3. 건축물의 형태와 재료: (예: 목재 마감, 유리 커튼월, 노출 콘크리트)
+                    
+                    검색 엔진이 가장 유사한 분위기를 찾을 수 있도록 아주 구체적으로 묘사해줘.
+                    """
+                    response = vision_model.generate_content([prompt, optimized_img])
                     query_text = response.text
-                    st.info(f"🔍 **분석 완료:** {query_text[:150]}...")
+                    st.success(f"🔍 **AI 이미지 분석 완료:**\n\n{query_text}")
                     
                     # 분석 완료 후 바로 검색 실행
                     perform_search(query_text)
