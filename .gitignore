@@ -1,0 +1,12 @@
+.env
+__pycache__/
+chroma_db/
+project/
+*.pyc
+venv/
+.streamlit/
+check_supabase.py
+migrate_*.py
+test_conn.py
+check_dim.py
+update_chroma_metadata.py

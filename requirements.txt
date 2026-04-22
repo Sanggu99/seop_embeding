@@ -1,0 +1,10 @@
+streamlit
+google-generativeai
+requests
+python-dotenv
+Pillow
+st-clickable-images
+pandas
+numpy
+plotly
+scikit-learn
