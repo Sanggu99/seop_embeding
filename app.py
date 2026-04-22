@@ -146,7 +146,7 @@ if query_text:
                 results = response.json()
                 
                 if results:
-                    st.markdown(f"### 🔍 '{query}' 검색 결과 (총 {len(results)}건)")
+                    st.markdown(f"### 🔍 검색 결과 (총 {len(results)}건)")
                     st.markdown("---")
                     
                     # Display Grid
