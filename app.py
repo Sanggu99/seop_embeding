@@ -21,10 +21,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# API Keys & Config
-API_KEY = os.environ.get("GEMINI_API_KEY", "")
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+# API Keys & Config (Prioritize st.secrets for Cloud)
+def get_secret(key, default=""):
+    if key in st.secrets:
+        return st.secrets[key]
+    return os.environ.get(key, default)
+
+API_KEY = get_secret("GEMINI_API_KEY")
+SUPABASE_URL = get_secret("SUPABASE_URL")
+SUPABASE_KEY = get_secret("SUPABASE_KEY")
+
+if not API_KEY or not SUPABASE_URL or not SUPABASE_KEY:
+    st.error("🔑 API 키 또는 설정값이 누락되었습니다. Streamlit Cloud의 Secrets 설정을 확인해주세요.")
+    st.stop()
 
 genai.configure(api_key=API_KEY)
 EMBEDDING_MODEL = "models/gemini-embedding-001"

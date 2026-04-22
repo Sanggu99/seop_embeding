@@ -13,29 +13,42 @@ load_dotenv()
 
 st.set_page_config(page_title="Embedding", layout="wide")
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+# Secrets handling for Cloud
+def get_secret(key, default=""):
+    if key in st.secrets:
+        return st.secrets[key]
+    return os.environ.get(key, default)
+
+SUPABASE_URL = get_secret("SUPABASE_URL")
+SUPABASE_KEY = get_secret("SUPABASE_KEY")
 
 @st.cache_resource
 def load_db():
     if not SUPABASE_URL or not SUPABASE_KEY:
+        st.warning("⚠️ SUPABASE_URL 또는 SUPABASE_KEY가 설정되지 않았습니다.")
         return None
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}"
     }
-    response = requests.get(f"{SUPABASE_URL}/rest/v1/architecture_images?select=id,project_name,project_usage,materiality,lighting_and_atmosphere,style_keywords,embedding", headers=headers)
-    if response.status_code == 200:
-        return response.json()
-    return None
+    try:
+        response = requests.get(f"{SUPABASE_URL}/rest/v1/architecture_images?select=id,project_name,project_usage,materiality,lighting_and_atmosphere,style_keywords,embedding", headers=headers, timeout=20)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            st.error(f"📡 데이터 로드 실패 (Status: {response.status_code}): {response.text}")
+            return None
+    except Exception as e:
+        st.error(f"❌ 연결 오류: {e}")
+        return None
 
 data = load_db()
 
 st.title("🌌 Architecture Embedding")
 st.markdown("수백 개의 프로젝트 이미지가 내포하고 있는 의미(Semantic)를 인공지능이 어떻게 군집화(Clustering)하고 있는지 탐색해보세요.")
 
-if not data:
-    st.error("Vector DB가 존재하지 않거나 로드할 수 없습니다.")
+if data is None:
+    st.error("데이터를 불러올 수 없습니다. 설정 또는 네트워크 상태를 확인해주세요.")
     st.stop()
 
 with st.spinner("DB에서 모든 벡터 데이터를 불러오고 있습니다..."):
