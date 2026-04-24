@@ -16,6 +16,7 @@ st.set_page_config(page_title="SEOP ARCHIVE", layout="wide")
 # Custom CSS for cleaner UI
 st.markdown("""
 <style>
+    .block-container { padding-top: 3rem; }
     .stImage { border-radius: 12px; }
     div[data-testid="stExpander"] { border: none; box-shadow: none; }
 </style>
